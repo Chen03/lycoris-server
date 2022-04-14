@@ -7,6 +7,9 @@ class Socket {
   constructor(ws: WebSocket) {
     ws.on('message', this.praseMessage.bind(this));
     this.ws = ws;
+
+    ws.onopen = e => this.emitter.emit('open');
+    ws.onclose = e => this.emitter.emit('close');
   }
 
   private praseMessage(data: RawData) {
@@ -17,6 +20,10 @@ class Socket {
 
   on(eventName: string, callback: (this: Socket, ...args) => void) {
     this.emitter.on(eventName, callback.bind(this));
+  }
+
+  once(eventName: string, callback: (this: Socket, ...args) => void) {
+    this.emitter.once(eventName, callback.bind(this));
   }
 
   emit(type: string, data): boolean {
