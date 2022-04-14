@@ -18,3 +18,4 @@ wss.on('connection', function connection(ws) {
     socket.on('requestAvaliableRoom', () => socket.emit('avaliableRooms', playRoomList.map((room, index) => ({ ID: index, count: room.memberCount }))));
     socket.on('joinRoom', ID => playRoomList[ID].addMember({ socket: socket, name: memberMap.get(socket) }));
 });
+//# sourceMappingURL=App.js.map

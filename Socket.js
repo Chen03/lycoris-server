@@ -32,3 +32,4 @@ class Socket {
     }
 }
 export default Socket;
+//# sourceMappingURL=Socket.js.map
