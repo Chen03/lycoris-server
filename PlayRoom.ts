@@ -76,29 +76,31 @@ class PlayRoom {
 
     const syncPlayList = () => {
       console.log({ list: this.playList, iterator: this.iterator });
-      this.paused = true;
+      const paused = this.paused;
       this.memberList.forEach(m => {
         m.socket.emit('sync', { 
           list: this.playList,
           iterator: this.iterator,
           paused: true
         });
-        m.socket.once('syncComplete', () => {
-          console.log(this.syncCount);
-          if (++this.syncCount === this.memberList.length) {
-            this.paused = false;
-            const nowTime = new Date().getTime();
-            this.memberList.forEach(m => m.socket.emit('play', {
-              time: { songTime: 0, syncTime: nowTime }
-            }));
-          }
-        });
-      })
+        this.paused = true;
+        if (!paused) {
+          m.socket.once('syncComplete', () => {
+            console.log(this.syncCount);
+            if (++this.syncCount === this.memberList.length) {
+              this.paused = false;
+              const nowTime = new Date().getTime();
+              this.memberList.forEach(m => m.socket.emit('play', {
+                time: { songTime: 0, syncTime: nowTime }
+              }));
+            }
+          });
+        }});
       this.syncCount = 0;
       console.log(this.memberList.length);
     }
     member.socket.on('addSong', data => {
-      this.iterator = data.iterator;
+      // this.iterator = data.iterator;
       if (data.now)  this.playList.splice(this.iterator, 0, data.song);
       else  this.playList.push(data.song);
       syncPlayList();
