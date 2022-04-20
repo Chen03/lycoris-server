@@ -77,7 +77,7 @@ class PlayRoom {
         m.socket.emit('sync', { time: this.time }));
     });
 
-    const syncPlayList = () => {
+    const syncPlayList = needReplay => {
       console.log({ list: this.playList, iterator: this.iterator });
       this.finishCount = 0;
       const paused = this.paused;
@@ -85,21 +85,24 @@ class PlayRoom {
         m.socket.emit('sync', { 
           list: this.playList,
           iterator: this.iterator,
-          paused: true
+          paused: needReplay
         });
-        this.paused = true;
-        if (!paused) {
-          m.socket.once('syncComplete', () => {
-            console.log(this.syncCount);
-            if (++this.syncCount === this.memberList.length) {
-              this.paused = false;
-              const nowTime = new Date().getTime();
-              this.memberList.forEach(m => m.socket.emit('play', {
-                time: { songTime: 0, syncTime: nowTime }
-              }));
-            }
-          });
-        }});
+        if (needReplay) {
+          this.paused = true;
+          if (!paused) {
+            m.socket.once('syncComplete', () => {
+              console.log(this.syncCount);
+              if (++this.syncCount === this.memberList.length) {
+                this.paused = false;
+                const nowTime = new Date().getTime();
+                this.memberList.forEach(m => m.socket.emit('play', {
+                  time: { songTime: 0, syncTime: nowTime }
+                }));
+              }
+            });
+          }
+        }
+      });
       this.syncCount = 0;
       console.log(this.memberList.length);
     };
@@ -108,26 +111,32 @@ class PlayRoom {
       data.song.uuid = genUUID();
       if (data.now)  this.playList.splice(this.iterator, 0, data.song);
       else  this.playList.push(data.song);
-      syncPlayList();
+      syncPlayList(data.now);
     });
     member.socket.on('nextSong', () => {
-      if (this.playList.length > this.iterator + 1) ++this.iterator;
-      syncPlayList();
+      if (this.playList.length > this.iterator + 1) {
+        ++this.iterator;
+        syncPlayList(true);
+      }
     });
     member.socket.on('prevSong', () => {
-      if (this.iterator > 0)  --this.iterator;
-      syncPlayList();
+      if (this.iterator > 0) {
+        --this.iterator;
+        syncPlayList(true);
+      }
     });
     member.socket.on('changeSong', it => {
-      this.iterator = it;
-      syncPlayList();
+      if (this.iterator !== it) {
+        this.iterator = it;
+        syncPlayList(true);
+      }
     });
 
     member.socket.on('finishedPlay', () => {
       if (++this.finishCount === this.memberCount && 
           this.iterator + 1 < this.playList.length) {
         ++this.iterator;
-        syncPlayList();
+        syncPlayList(true);
       }
     })
   };
