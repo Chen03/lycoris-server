@@ -1,8 +1,15 @@
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'https'
 import PlayRoom, { Song } from './PlayRoom.js';
 import Socket from './Socket.js';
+import { readFileSync } from 'fs';
 
-const wss = new WebSocketServer({ port: 3001 });
+const server = createServer({
+  key: readFileSync('../cert/balanca.cn.key'),
+  cert: readFileSync('../cert/balanca.cn_bundle.crt'),
+})
+
+const wss = new WebSocketServer({ server });
 
 let playRoomList : Array<PlayRoom> = [];
 let memberMap = new Map();
@@ -26,3 +33,5 @@ wss.on('connection', function connection(ws) {
   );
   socket.on('joinRoom', ID => playRoomList[ID].addMember({ socket: socket, name: memberMap.get(socket) }));
 });
+
+server.listen(3001);
