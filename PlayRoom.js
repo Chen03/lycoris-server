@@ -1,3 +1,4 @@
+function genUUID() { return Math.round(Math.random() * 1000000); }
 class PlayRoom {
     constructor(list, iterator, { socket, name }, ID) {
         this.time = {
@@ -6,6 +7,7 @@ class PlayRoom {
         };
         this.paused = true;
         this.syncCount = 0;
+        this.finishCount = 0;
         this.playList = list;
         this.iterator = iterator;
         this.memberList = [];
@@ -49,6 +51,7 @@ class PlayRoom {
         });
         const syncPlayList = () => {
             console.log({ list: this.playList, iterator: this.iterator });
+            this.finishCount = 0;
             const paused = this.paused;
             this.memberList.forEach(m => {
                 m.socket.emit('sync', {
@@ -75,6 +78,7 @@ class PlayRoom {
         };
         member.socket.on('addSong', data => {
             // this.iterator = data.iterator;
+            data.song.uuid = genUUID();
             if (data.now)
                 this.playList.splice(this.iterator, 0, data.song);
             else
@@ -90,6 +94,17 @@ class PlayRoom {
             if (this.iterator > 0)
                 --this.iterator;
             syncPlayList();
+        });
+        member.socket.on('changeSong', it => {
+            this.iterator = it;
+            syncPlayList();
+        });
+        member.socket.on('finishedPlay', () => {
+            if (++this.finishCount === this.memberCount &&
+                this.iterator + 1 < this.playList.length) {
+                ++this.iterator;
+                syncPlayList();
+            }
         });
     }
     ;

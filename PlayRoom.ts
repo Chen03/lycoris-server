@@ -13,6 +13,8 @@ interface Member {
   name: string
 }
 
+function genUUID() { return Math.round(Math.random() * 1000000); }
+
 class PlayRoom {
   private playList: Array<Song>;
   private iterator: number;
@@ -24,6 +26,7 @@ class PlayRoom {
   private paused: boolean = true;
 
   private syncCount: number = 0;
+  private finishCount: number = 0;
 
   public ID: number;
   public get memberCount(): number {
@@ -76,6 +79,7 @@ class PlayRoom {
 
     const syncPlayList = () => {
       console.log({ list: this.playList, iterator: this.iterator });
+      this.finishCount = 0;
       const paused = this.paused;
       this.memberList.forEach(m => {
         m.socket.emit('sync', { 
@@ -98,20 +102,33 @@ class PlayRoom {
         }});
       this.syncCount = 0;
       console.log(this.memberList.length);
-    }
+    };
     member.socket.on('addSong', data => {
       // this.iterator = data.iterator;
+      data.song.uuid = genUUID();
       if (data.now)  this.playList.splice(this.iterator, 0, data.song);
       else  this.playList.push(data.song);
       syncPlayList();
-    })
+    });
     member.socket.on('nextSong', () => {
       if (this.playList.length > this.iterator + 1) ++this.iterator;
       syncPlayList();
-    })
+    });
     member.socket.on('prevSong', () => {
       if (this.iterator > 0)  --this.iterator;
       syncPlayList();
+    });
+    member.socket.on('changeSong', it => {
+      this.iterator = it;
+      syncPlayList();
+    });
+
+    member.socket.on('finishedPlay', () => {
+      if (++this.finishCount === this.memberCount && 
+          this.iterator + 1 < this.playList.length) {
+        ++this.iterator;
+        syncPlayList();
+      }
     })
   };
 }
