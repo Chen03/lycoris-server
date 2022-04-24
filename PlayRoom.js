@@ -12,11 +12,17 @@ class PlayRoom {
         this.iterator = iterator;
         this.memberList = [];
         this.ID = ID;
-        this.addMember({ socket: socket, name: name }, false);
-        console.log({ list: list, iterator: iterator });
+        this.addMember({ socket, name }, false);
+        console.log({ list, iterator });
     }
     get memberCount() {
         return this.memberList.length;
+    }
+    emitAll(type, data) {
+        this.memberList.forEach(member => member.socket.emit(type, data));
+    }
+    sendMessage(message, type = 'info') {
+        this.emitAll('message', { message, type });
     }
     addMember(member, sync = true) {
         console.log(`addMember: ${member}`);
@@ -49,7 +55,7 @@ class PlayRoom {
             this.memberList.forEach(m => m != member &&
                 m.socket.emit('sync', { time: this.time }));
         });
-        const syncPlayList = () => {
+        const syncPlayList = needReplay => {
             console.log({ list: this.playList, iterator: this.iterator });
             this.finishCount = 0;
             const paused = this.paused;
@@ -57,20 +63,22 @@ class PlayRoom {
                 m.socket.emit('sync', {
                     list: this.playList,
                     iterator: this.iterator,
-                    paused: true
+                    paused: needReplay
                 });
-                this.paused = true;
-                if (!paused) {
-                    m.socket.once('syncComplete', () => {
-                        console.log(this.syncCount);
-                        if (++this.syncCount === this.memberList.length) {
-                            this.paused = false;
-                            const nowTime = new Date().getTime();
-                            this.memberList.forEach(m => m.socket.emit('play', {
-                                time: { songTime: 0, syncTime: nowTime }
-                            }));
-                        }
-                    });
+                if (needReplay) {
+                    this.paused = true;
+                    if (!paused) {
+                        m.socket.once('syncComplete', () => {
+                            console.log(this.syncCount);
+                            if (++this.syncCount === this.memberList.length) {
+                                this.paused = false;
+                                const nowTime = new Date().getTime();
+                                this.memberList.forEach(m => m.socket.emit('play', {
+                                    time: { songTime: 0, syncTime: nowTime }
+                                }));
+                            }
+                        });
+                    }
                 }
             });
             this.syncCount = 0;
@@ -83,27 +91,36 @@ class PlayRoom {
                 this.playList.splice(this.iterator, 0, data.song);
             else
                 this.playList.push(data.song);
-            syncPlayList();
+            syncPlayList(data.now);
+            this.sendMessage(`${member.name} 添加了 ${data.song.name}!`);
         });
         member.socket.on('nextSong', () => {
-            if (this.playList.length > this.iterator + 1)
+            if (this.playList.length > this.iterator + 1) {
                 ++this.iterator;
-            syncPlayList();
+                syncPlayList(true);
+                this.sendMessage(`${member.name} 切了下一首～`);
+            }
         });
         member.socket.on('prevSong', () => {
-            if (this.iterator > 0)
+            if (this.iterator > 0) {
                 --this.iterator;
-            syncPlayList();
+                syncPlayList(true);
+                this.sendMessage(`${member.name} 切了上一首，再来亿遍！`);
+            }
         });
         member.socket.on('changeSong', it => {
-            this.iterator = it;
-            syncPlayList();
+            if (this.iterator !== it) {
+                this.iterator = it;
+                syncPlayList(true);
+                this.sendMessage(`${member.name} 切歌了诶`);
+            }
         });
         member.socket.on('finishedPlay', () => {
             if (++this.finishCount === this.memberCount &&
                 this.iterator + 1 < this.playList.length) {
                 ++this.iterator;
-                syncPlayList();
+                syncPlayList(true);
+                this.sendMessage(`大家都听完了，开始下一首啦`);
             }
         });
     }

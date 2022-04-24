@@ -10,6 +10,7 @@ const server = createServer({
 })
 
 const wss = new WebSocketServer({ server });
+// const wss = new WebSocketServer({ port: 3001 });
 
 let playRoomList : Array<PlayRoom> = [];
 let memberMap = new Map();

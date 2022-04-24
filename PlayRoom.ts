@@ -39,8 +39,16 @@ class PlayRoom {
     this.memberList = [];
     this.ID = ID;
 
-    this.addMember({ socket: socket, name: name }, false);
-    console.log({ list: list, iterator: iterator });
+    this.addMember({ socket, name }, false);
+    console.log({ list, iterator });
+  }
+
+  emitAll(type: string, data: any) {
+    this.memberList.forEach(member => member.socket.emit(type, data));
+  }
+
+  sendMessage(message: string, type: string = 'info') {
+    this.emitAll('message', { message, type });
   }
 
   addMember(member: Member, sync: boolean = true) {
@@ -112,23 +120,27 @@ class PlayRoom {
       if (data.now)  this.playList.splice(this.iterator, 0, data.song);
       else  this.playList.push(data.song);
       syncPlayList(data.now);
+      this.sendMessage(`${member.name} 添加了 ${data.song.name}!`);
     });
     member.socket.on('nextSong', () => {
       if (this.playList.length > this.iterator + 1) {
         ++this.iterator;
         syncPlayList(true);
+        this.sendMessage(`${member.name} 切了下一首～`);
       }
     });
     member.socket.on('prevSong', () => {
       if (this.iterator > 0) {
         --this.iterator;
         syncPlayList(true);
+        this.sendMessage(`${member.name} 切了上一首，再来亿遍！`);
       }
     });
     member.socket.on('changeSong', it => {
       if (this.iterator !== it) {
         this.iterator = it;
         syncPlayList(true);
+        this.sendMessage(`${member.name} 切歌了诶`);
       }
     });
 
@@ -137,6 +149,7 @@ class PlayRoom {
           this.iterator + 1 < this.playList.length) {
         ++this.iterator;
         syncPlayList(true);
+        this.sendMessage(`大家都听完了，开始下一首啦`);
       }
     })
   };
